@@ -182,7 +182,6 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
     );
     refElChat?.current?.style.setProperty("margin-bottom", `${marginB}px`);
     refEmot?.current?.style.setProperty("bottom", `${marginB}px`);
-    console.log("params", params);
   }, [marginB]);
 
   useEffect(() => {

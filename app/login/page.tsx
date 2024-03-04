@@ -31,9 +31,7 @@ const Login = () => {
     localStorage.setItem("isClickLogin", "true");
     try {
       await signinWithGoogle();
-    } catch (error) {
-      console.log(error);
-    }
+    } catch (error) {}
   };
   return (
     <div className="relative w-full h-screen overflow-hidden">
