@@ -28,9 +28,9 @@ const Login = () => {
   }, []);
 
   const handleLogin = async () => {
-    localStorage.setItem("isClickLogin", "true");
     try {
       await signinWithGoogle();
+      localStorage.setItem("isClickLogin", "true");
     } catch (error) {}
   };
   return (
