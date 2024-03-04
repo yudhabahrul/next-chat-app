@@ -150,7 +150,6 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
 
   useEffect(() => {
     setIsLoading(true);
-    refTextArea.current?.focus();
 
     if (id) {
       const docRef = doc(db, "groups", id as string);
@@ -198,7 +197,7 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
 
   return (
     <section className="relative h-screen w-full overflow-hidden">
-      <header className="fixed top-0 left-0 right-0 flex  justify-between border-b-2 border-gray-100 px-4 pl-3 h-[4.7rem] ">
+      <header className="fixed top-0 left-0 right-0 flex  justify-between border-b-2 bg-white z-50 border-gray-100 px-4 pl-3 h-[4.7rem] ">
         <GoArrowLeft
           onClick={() => router.back()}
           className="absolute top-1/2 -translate-y-1/2 text-2xl text-gray-400"
@@ -253,7 +252,7 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
       ) : messages.length > 0 ? (
         <ul
           ref={refElChat}
-          className={`scroll relative overflow-y-auto w-full mt-[4.7rem] mb-[3.7rem] h-[calc(100%_-_8.4rem)] pb-6`}
+          className={`scroll relative overflow-y-auto w-full mt-[4.7rem] mb-[3.7rem] h-[calc(100%_-_8.4rem)] pb-4`}
         >
           {messages.map((msg, idx) => {
             return (
@@ -371,7 +370,7 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
       )}
       <div
         ref={refBottom}
-        className="absolute bottom-0 left-0  right-0 bg-white flex items-center border-t-2 border-gray-100 px-1 pl-3 min-h-[3.7rem] max-h-36"
+        className="fixed bottom-0 left-0  right-0 bg-white flex items-center border-t-2 border-gray-100 px-1 pl-3 min-h-[3.7rem] max-h-36"
       >
         <div className="relative w-[93%]">
           <textarea
