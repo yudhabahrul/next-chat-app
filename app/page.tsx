@@ -30,8 +30,8 @@ const Loading = () => {
         className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 pb-28"
         type="bubbles"
         color="#608ce9"
-        height={(width as number) < 639 ? "20%" : "7%"}
-        width={(width as number) < 639 ? "20%" : "7%"}
+        // height={(width as number) < 500 ? "7%" : "20%"}
+        // width={(width as number) < 500 ? "7%" : "20%"}
       />
     </section>
   );

@@ -40,8 +40,6 @@ const Login = () => {
           className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 pb-28"
           type="bubbles"
           color="#608ce9"
-          height={"7%"}
-          width={"7%"}
         />
       ) : (
         <>
