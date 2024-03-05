@@ -22,6 +22,11 @@ const Login = () => {
   useEffect(() => {
     const isClickLogin = localStorage.getItem("isClickLogin");
 
+    setTimeout(() => {
+      localStorage.removeItem("isClickLogin");
+      setIsLoadingLogin(false);
+    }, 7000);
+
     if (!isClickLogin) {
       setIsLoadingLogin(false);
     }
