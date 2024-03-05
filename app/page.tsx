@@ -5,12 +5,14 @@ import { AuthContext } from "@/context/AuthContext";
 import { AuthContextType } from "@/type";
 import { useContext, useEffect } from "react";
 import ReactLoading from "react-loading";
+import useWindowDimensions from "@/hooks/useWindowDimensions";
 
 const Loading = () => {
   const { currentUser, isLoadingUser } = useContext(
     AuthContext
   ) as AuthContextType;
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   useEffect(() => {
     if (!isLoadingUser) {
@@ -28,8 +30,8 @@ const Loading = () => {
         className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2 pb-28"
         type="bubbles"
         color="#608ce9"
-        height={"7%"}
-        width={"7%"}
+        height={(width as number) < 639 ? "20%" : "7%"}
+        width={(width as number) < 639 ? "20%" : "7%"}
       />
     </section>
   );
