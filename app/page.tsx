@@ -12,19 +12,15 @@ const Loading = () => {
   ) as AuthContextType;
   const router = useRouter();
 
-  // useEffect(() => {
-  //   if (!isLoadingUser) {
-  //     if (currentUser) {
-  //       router.replace("/home");
-  //     } else {
-  //       router.replace("/login");
-  //     }
-  //   }
-  // }, [isLoadingUser, currentUser]);
-
   useEffect(() => {
-    router.replace("/home");
-  }, []);
+    if (!isLoadingUser) {
+      if (currentUser) {
+        router.replace("/home");
+      } else {
+        router.replace("/login");
+      }
+    }
+  }, [isLoadingUser, currentUser]);
 
   return (
     <section className="w-full h-screen grid place-content-center overflow-hidden">

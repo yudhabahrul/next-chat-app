@@ -13,11 +13,11 @@ const Home = () => {
   const router = useRouter();
   const { currentUser } = useContext(AuthContext) as AuthContextType;
 
-  // useEffect(() => {
-  //   if (!currentUser) {
-  //     router.replace("/login");
-  //   }
-  // }, [currentUser]);
+  useEffect(() => {
+    if (!currentUser) {
+      router.replace("/login");
+    }
+  }, [currentUser]);
 
   return (
     <Suspense
