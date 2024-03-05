@@ -7,8 +7,14 @@ import { BsChatFill } from "react-icons/bs";
 import { GoPerson } from "react-icons/go";
 import { GoArrowLeft } from "react-icons/go";
 import { AiOutlineHeart } from "react-icons/ai";
+import { useContext } from "react";
+import { AuthContext } from "@/context/AuthContext";
+import { AuthContextType } from "@/type";
 
 const About = () => {
+  const { setShowChatBox, currentUser, logout, lastMessage } = useContext(
+    AuthContext
+  ) as AuthContextType;
   const router = useRouter();
 
   return (
@@ -28,14 +34,14 @@ const About = () => {
       <div className="flex flex-col justify-center items-center">
         <Image
           className="rounded-full w-24 h-24 object-cover"
-          src="/profil.jpg"
+          src={currentUser?.photoURL as string}
           width={96}
           objectFit="cover"
           height={96}
           alt="Picture of the author"
         />
-        <h2 className="text-xl text-slate-700 mt-3">Yudha Bahrul Alam</h2>
-        <p className="text-slate-600 -mt-1">Junior Developer</p>
+        <h2 className="text-xl text-slate-700 mt-3">{currentUser?.photoURL}</h2>
+        <p className="text-slate-600 -mt-1">Programmer</p>
         <ul className="flex mt-5">
           <li className="flex flex-col items-center p-3 pr-12 border-r-2 border-gray-200 cursor-pointer">
             <span className="w-14 h-14 bg-[rgba(130,176,219,0.2)] hover:bg-[rgba(130,176,219,0.35)] p-3 rounded-full grid place-content-center">

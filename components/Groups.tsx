@@ -173,14 +173,14 @@ const Groups = () => {
               <AiOutlineUsergroupAdd
                 onClick={() => setShowCreateGroup(true)}
                 title="Add Group"
-                className="text-[#949393] -mt-4 text-xl cursor-pointer"
+                className="text-[#949393] -mt-4 text-xl sm:text-2xl cursor-pointer"
               />
             </li>
             <li>
               <IoLogOutOutline
                 onClick={handleLogout}
                 title="Logout"
-                className="text-[#8d8c8c] -mt-4 text-xl cursor-pointer sm:text-lg"
+                className="text-[#8d8c8c] -mt-4 text-xl cursor-pointer sm:text-xl"
               />
             </li>
           </ul>
