@@ -22,7 +22,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <meta http-equiv="Cache-control" content="public" />
+        <meta
+          http-equiv="Cache-control"
+          content="public, max-age=3600, must-revalidate"
+        />
       </head>
       <body className={poppins.className}>
         <AuthProvider>{children}</AuthProvider>
