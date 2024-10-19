@@ -7,9 +7,12 @@ export function secondsToDate(secs: number) {
   return localDate;
 }
 
-export function getAMPMFromISOString(isoString: Date) {
-  const date = new Date(isoString);
+export function formatTime(dateString: string): string {
+  const date = new Date(dateString);
   const hours = date.getHours();
-  const ampm = hours >= 12 ? "PM" : "AM";
-  return ampm;
+  const minutes = date.getMinutes();
+  const formattedHours = hours < 10 ? `0${hours}` : `${hours}`;
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : `${minutes}`;
+
+  return `${formattedHours}.${formattedMinutes}`;
 }

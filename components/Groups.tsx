@@ -1,20 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import React, { useState, useEffect, useContext, Suspense } from "react";
-import {
-  addDoc,
-  collection,
-  serverTimestamp,
-  query,
-  onSnapshot,
-  orderBy,
-  getDocs,
-} from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/firebase";
-import { v4 as uuid } from "uuid";
+import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, useContext } from "react";
 import {
   IoSearchOutline,
   IoCloseOutline,
@@ -25,79 +13,59 @@ import { GrDocumentImage } from "react-icons/gr";
 import { IoMdAdd, IoMdImage } from "react-icons/io";
 import Link from "next/link";
 import ReactLoading from "react-loading";
+import { useGroups } from "../hooks/useGroups";
+import { useAddGroup } from "../hooks/useAddGroup";
 import useWindowDimensions from "../hooks/useWindowDimensions";
-import { secondsToDate, getAMPMFromISOString } from "@/helper";
-import { AuthContextType } from "@/type";
+import { formatTime } from "@/helper";
+import { AuthContextType, Group } from "@/type";
 import { AuthContext } from "@/context/AuthContext";
+import { useSocket } from "@/context/SocketContext";
+import { useGetLastMessage } from "@/hooks/useGetLastMessage";
 
 const Groups = () => {
-  const router = useRouter();
-  const path = usePathname();
-  const { setShowChatBox, currentUser, logout, lastMessage } = useContext(
+  const { setShowChatBox, currentUser, logout } = useContext(
     AuthContext
   ) as AuthContextType;
+  const { socket } = useSocket();
   const searchParams = useSearchParams();
   const id = searchParams.get("chats");
   const [showCreateGroup, setShowCreateGroup] = useState<boolean>(false);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [sendImage, setSendImage] = useState<File | null>(null);
   const [nameGroup, setNameGroup] = useState<string>("");
-  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchGroup, setSearchGroup] = useState<string>("");
   const [listGroups, setListGroups] = useState<any[]>([]);
-  const [createIsLoading, setCreateIsLoading] = useState<boolean>(false);
   const { width } = useWindowDimensions();
-
-  useEffect(() => {
-    const q = query(collection(db, "groups"), orderBy("createdAt"));
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const listGroup: any = [];
-      querySnapshot.forEach((doc) => {
-        listGroup.push({ ...doc.data(), id: doc.id });
-      });
-      setGroups(listGroup);
-      setIsLoading(false);
-    });
-  }, []);
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const listLastMessage: any[] = [];
-
-      for (const val of groups) {
-        const q = query(
-          collection(db, val?.id.toString() as string),
-          orderBy("createdAt")
-        );
-        const querySnapshot = await getDocs(q);
-        const docs = querySnapshot.docs;
-        if (docs.length > 0) {
-          const lastDoc = docs[docs.length - 1];
-          const lastMessage = { ...lastDoc.data() };
-          listLastMessage.push(lastMessage);
-        } else {
-          listLastMessage.push(null);
-        }
-      }
-      setMessages(listLastMessage);
-    };
-
-    fetchMessages();
-  }, [groups, lastMessage]);
+  const { mutate: addGroup, isPending } = useAddGroup(
+    setShowCreateGroup,
+    setSelectedImage,
+    setSendImage,
+    setNameGroup
+  );
+  const { data: groups, isLoading } = useGroups();
+  const lastMessagesQueries = useGetLastMessage(groups);
 
   const handleLogout = () => {
+    setShowChatBox(false);
     localStorage.removeItem("isClickLogin");
     logout();
   };
 
   useEffect(() => {
-    const filterGroup = groups.filter((group, _) =>
-      group?.nameGroup.toLowerCase().includes(searchGroup.toLowerCase())
-    );
-    setListGroups(filterGroup);
-  }, [searchGroup, groups]);
+    if (groups) {
+      const filterGroup = groups.filter((group: Group) =>
+        group?.nameGroup.toLowerCase().includes(searchGroup.toLowerCase())
+      );
+      setListGroups(filterGroup);
+      if (socket) {
+        socket.on("connect", () => {
+          groups.forEach((group: Group) => {
+            socket.emit("join_room", group._id);
+          });
+        });
+      }
+    }
+  }, [searchGroup, groups, socket]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e?.target?.files?.[0];
@@ -118,31 +86,23 @@ const Groups = () => {
   };
 
   const handleCreateGroup = async () => {
-    setCreateIsLoading(true);
     if (sendImage && nameGroup) {
-      const storageRef = ref(storage, uuid());
+      const formData = new FormData();
+      formData.append("nameGroup", nameGroup);
+      formData.append("image", sendImage);
 
-      uploadBytes(storageRef, sendImage).then((snapshot) => {
-        getDownloadURL(snapshot.ref).then(async (url) => {
-          await addDoc(collection(db, "groups"), {
-            nameGroup,
-            image: url,
-            createdAt: serverTimestamp(),
-          });
-        });
-        setShowCreateGroup(false);
-        setCreateIsLoading(false);
-        setSelectedImage(null);
-        setSendImage(null);
-        setNameGroup("");
-      });
+      addGroup(formData);
+
+      setShowCreateGroup(false);
+      setSelectedImage(null);
+      setSendImage(null);
+      setNameGroup("");
     } else {
       if (!sendImage) {
         alert("Foto group belum diunggah");
       } else {
         alert("Nama group belum ditulis");
       }
-      setCreateIsLoading(false);
     }
   };
 
@@ -206,6 +166,15 @@ const Groups = () => {
       ) : groups.length >= 1 ? (
         <ul className="scroll overflow-y-auto w-full h-[calc(100%_-_19%)] sm:h-[calc(100%_-_15%)] sm:pb-1">
           {listGroups.map((group, idx) => {
+            const lastMessageQuery = lastMessagesQueries[idx];
+            const lastMessage = lastMessageQuery.data
+              ? lastMessageQuery.data[0]
+              : null;
+            console.log(
+              "yudha",
+              JSON.stringify(lastMessageQuery.data, null, 2)
+            );
+
             return (
               <li
                 key={idx}
@@ -216,11 +185,11 @@ const Groups = () => {
                 <Link
                   href={
                     (width as number) < 639
-                      ? `/chat/${group?.id}`
-                      : `/home?chats=${group?.id}`
+                      ? `/chat/${group?._id}`
+                      : `/home?chats=${group?._id}`
                   }
                   className={`flex w-full items-center py-[0.7rem] pl-4 cursor-pointer ${
-                    group?.id === id ? "bg-gray-200" : ""
+                    group?._id === id ? "bg-gray-200" : ""
                   } hover:bg-gray-200 border-b border-gray-200 last:border-b-0`}
                   scroll={false}
                 >
@@ -238,27 +207,21 @@ const Groups = () => {
                     <p className="font-semibold leading-4 text-blue-500 text-[0.8rem] sm:text-sm sm:ml-1 truncate">
                       {group?.nameGroup}
                     </p>
-                    {messages[idx]?.image && !searchGroup ? (
+                    {lastMessage?.image && !searchGroup ? (
                       <IoMdImage className="text-[#9b9a9a] -ml-[0.2rem] text-lg sm:ml-1" />
                     ) : (
                       <p
                         className={`text-gray-600 w-56 text-[0.7rem] ${
-                          messages[idx] && !searchGroup ? "" : "invisible"
+                          lastMessage && !searchGroup ? "" : "invisible"
                         } sm:text-xs sm:ml-1 truncate`}
                       >
-                        {messages[idx] ? messages[idx]?.message : "p"}
+                        {lastMessage ? lastMessage?.text : "p"}
                       </p>
                     )}
                   </div>
-                  {messages[idx]?.createdAt && !searchGroup && (
+                  {lastMessage?.createdAt && !searchGroup && (
                     <p className="text-gray-700 -mt-3 text-[0.65rem]">
-                      {`${secondsToDate(
-                        messages[idx]?.createdAt?.seconds
-                      ).getHours()}.${secondsToDate(
-                        messages[idx]?.createdAt?.seconds
-                      ).getMinutes()} ${getAMPMFromISOString(
-                        secondsToDate(messages[idx]?.createdAt?.seconds)
-                      )}`}
+                      {`${formatTime(lastMessage?.createdAt)}`}
                     </p>
                   )}
                 </Link>
@@ -296,7 +259,7 @@ const Groups = () => {
           <h2 className="text-blue-500 text-center text-xl mt-2">
             Create a group
           </h2>
-          {createIsLoading && (
+          {isPending && (
             <ReactLoading
               className="absolute top-1/2 left-1/2 -translate-y-1/2 -translate-x-1/2"
               type="bubbles"

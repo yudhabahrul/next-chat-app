@@ -15,26 +15,18 @@ import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 import { AuthContextType } from "@/type";
 import { AuthContext } from "@/context/AuthContext";
-import {
-  DocumentData,
-  addDoc,
-  collection,
-  doc,
-  onSnapshot,
-  orderBy,
-  query,
-  serverTimestamp,
-} from "firebase/firestore";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import { db, storage } from "@/firebase";
+import { DocumentData } from "firebase/firestore";
+import { ref } from "firebase/storage";
+import { storage } from "@/firebase";
 import ReactLoading from "react-loading";
-import { getAMPMFromISOString, secondsToDate } from "@/helper";
+import { formatTime } from "@/helper";
+import { useSocket } from "@/context/SocketContext";
+import axios from "axios";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ChatGroup = ({ params }: { params: { id: string } }) => {
-  const { showChatBox, currentUser, setLastMessage } = useContext(
-    AuthContext
-  ) as AuthContextType;
-  const [messages, setMassages] = useState<any[]>([]);
+  const { currentUser } = useContext(AuthContext) as AuthContextType;
+  const [messages, setMessages] = useState<any[]>([]);
   const [textMessage, setTextMessage] = useState<string>("");
   const [marginB, setMarginB] = useState<number>(59.2);
   const [detailGroup, setDetailGroup] = useState<DocumentData>();
@@ -50,6 +42,21 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
   const id = params.id;
+  const { socket } = useSocket();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const response = await axios.get(
+          "https://chat-app-gamma-virid.vercel.app/api/messages"
+        );
+        setMessages(response.data);
+      } catch (error) {}
+    };
+
+    fetchMessages();
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({
@@ -65,60 +72,85 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
       if (showEmot) {
         setShowEmot(false);
       }
+      if (socket) {
+        const reader = new FileReader();
+        reader.readAsDataURL(sendImage);
+        reader.onloadend = async () => {
+          const base64Image = reader.result;
 
-      uploadBytes(storageRef, sendImage).then((snapshot) => {
-        getDownloadURL(snapshot.ref).then(async (url) => {
-          await addDoc(collection(db, id?.toString() as string), {
-            message: textMessage,
-            image: url,
-            avatar: currentUser?.photoURL,
-            sender: currentUser?.email,
-            name: currentUser?.displayName,
-            createdAt: serverTimestamp(),
-          });
-        });
-        setIsSend(false);
-        setSelectedImage(null);
-        setSendImage(null);
-        setTextMessage("");
-      });
+          socket.emit(
+            "sendMessage",
+            {
+              user: currentUser?.displayName,
+              email: currentUser?.email,
+              avatar: currentUser?.photoURL,
+              text: textMessage,
+              imageBuffer: base64Image,
+              image: selectedImage,
+              room: id,
+            },
+            () => {
+              setIsSend(false);
+              setSelectedImage(null);
+              setSendImage(null);
+              setTextMessage("");
+            }
+          );
+        };
+      }
     } else if (!sendImage && textMessage) {
       setIsSend(true);
       if (showEmot) {
         setShowEmot(false);
       }
-      await addDoc(collection(db, id?.toString() as string), {
-        message: textMessage,
-        image: null,
-        avatar: currentUser?.photoURL,
-        sender: currentUser?.email,
-        name: currentUser?.displayName,
-        createdAt: serverTimestamp(),
-      });
-      setIsSend(false);
-      setTextMessage("");
+      if (socket) {
+        socket.emit(
+          "sendMessage",
+          {
+            user: currentUser?.displayName,
+            email: currentUser?.email,
+            avatar: currentUser?.photoURL,
+            text: textMessage,
+            imageBuffer: null,
+            image: null,
+            room: id,
+          },
+          () => {
+            setIsSend(false);
+            setTextMessage("");
+          }
+        );
+      }
     } else if (sendImage && !textMessage) {
       setIsSend(true);
       if (showEmot) {
         setShowEmot(false);
       }
-      const storageRef = ref(storage, uuid());
+      if (socket) {
+        const reader = new FileReader();
+        reader.readAsDataURL(sendImage);
+        reader.onloadend = async () => {
+          const base64Image = reader.result;
 
-      uploadBytes(storageRef, sendImage).then((snapshot) => {
-        getDownloadURL(snapshot.ref).then(async (url) => {
-          await addDoc(collection(db, id?.toString() as string), {
-            message: null,
-            image: url,
-            avatar: currentUser?.photoURL,
-            sender: currentUser?.email,
-            name: currentUser?.displayName,
-            createdAt: serverTimestamp(),
-          });
-        });
-        setIsSend(false);
-        setSelectedImage(null);
-        setSendImage(null);
-      });
+          socket.emit(
+            "sendMessage",
+            {
+              user: currentUser?.displayName,
+              email: currentUser?.email,
+              avatar: currentUser?.photoURL,
+              text: null,
+              imageBuffer: base64Image,
+              image: selectedImage,
+              room: id,
+            },
+            () => {
+              setIsSend(false);
+              setSelectedImage(null);
+              setSendImage(null);
+            }
+          );
+        };
+      }
     } else {
       if (showEmot) {
         setShowEmot(false);
@@ -126,12 +158,13 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
       alert("Belum ada pesan yg ditulis");
     }
     refTextArea.current?.style.setProperty("height", "2.5rem");
+    setMarginB((refBottom?.current?.offsetHeight as number) + 16);
   };
 
   const auto_grow = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     e.target.style.height = "2.5rem";
     e.target.style.height = e.target.scrollHeight + "px";
-    setMarginB(refBottom?.current?.offsetHeight as number);
+    setMarginB((refBottom?.current?.offsetHeight as number) + 15);
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,38 +182,68 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
   }, [messages]);
 
   useEffect(() => {
-    setIsLoading(true);
+    const fetchMessages = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get(
+          `https://chat-app-gamma-virid.vercel.app/api/${id}/messages`
+        );
+        setMessages(response.data);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      }
+      setIsLoading(false);
+    };
+
+    const fetchDetailGroup = async () => {
+      try {
+        const response = await axios.get(
+          `https://chat-app-gamma-virid.vercel.app/api/groups/${id}`
+        );
+        setDetailGroup(response.data);
+      } catch (error) {
+        console.error("Error fetching messages:", error);
+      }
+    };
 
     if (id) {
-      const docRef = doc(db, "groups", id as string);
-
-      onSnapshot(docRef, (doc) => {
-        setDetailGroup(doc.data());
-      });
-      setIsLoading(true);
-      const q = query(
-        collection(db, id?.toString() as string),
-        orderBy("createdAt")
-      );
-      onSnapshot(q, (querySnapshot) => {
-        const listMessage: any = [];
-        querySnapshot.forEach((doc) => {
-          listMessage.push({ ...doc.data(), id: doc.id });
-        });
-        setMassages(listMessage);
-        setIsLoading(false);
-        setLastMessage(listMessage);
-      });
+      fetchMessages();
+      fetchDetailGroup();
     }
   }, [id]);
 
   useEffect(() => {
-    refElChat.current?.style.setProperty(
-      "height",
-      `calc(100% - (3.7rem + ${marginB}px))`
-    );
-    refElChat?.current?.style.setProperty("margin-bottom", `${marginB}px`);
-    refEmot?.current?.style.setProperty("bottom", `${marginB}px`);
+    if (socket) {
+      socket.on("message", (messageData) => {
+        queryClient.invalidateQueries({
+          queryKey: ["lastMessage", messageData?.groupId],
+        });
+        console.log("Pesan diterima dari server:", messageData);
+        setMessages((prevMessages) => {
+          if (Array.isArray(prevMessages)) {
+            return [...prevMessages, messageData];
+          } else {
+            console.warn("prevMessages bukan array, inisialisasi ulang");
+            return [messageData];
+          }
+        });
+      });
+
+      return () => {
+        socket.off("message");
+      };
+    }
+  }, [socket, queryClient]);
+
+  useEffect(() => {
+    if (marginB !== 59.2) {
+      refElChat.current?.style.setProperty(
+        "height",
+        `calc(100% - (3.7rem + ${marginB}px))`
+      );
+      refElChat?.current?.style.setProperty("margin-bottom", `${marginB}px`);
+      refEmot?.current?.style.setProperty("bottom", `${marginB}px`);
+    }
   }, [marginB]);
 
   useEffect(() => {
@@ -259,12 +322,12 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
               <li
                 key={idx}
                 className={`flex items-start ${
-                  currentUser?.email === msg?.sender
+                  currentUser?.email === msg?.email
                     ? "justify-end"
                     : "justify-start"
                 } mt-4 px-3`}
               >
-                {currentUser?.email !== msg?.sender && (
+                {currentUser?.email !== msg?.email && (
                   <Image
                     className="rounded-full w-7 h-7 object-cover"
                     src={msg?.avatar}
@@ -278,21 +341,21 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
                   className={`relative flex items-center ${
                     msg?.image ? " max-w-[70%]" : "max-w-[90%]"
                   } ${
-                    currentUser?.email === msg?.sender
+                    currentUser?.email === msg?.email
                       ? "bg-blue-500"
                       : "bg-gray-200"
                   } px-2 pt-2 rounded-[0.4rem] ${
-                    currentUser?.email === msg?.sender
+                    currentUser?.email === msg?.email
                       ? "rounded-tr-none"
                       : "rounded-tl-none"
                   } ${
-                    currentUser?.email !== msg?.sender ? "pt-1" : ""
+                    currentUser?.email !== msg?.email ? "pt-1" : ""
                   } ml-[0.35rem]`}
                 >
                   <div>
-                    {currentUser?.email !== msg?.sender && (
+                    {currentUser?.email !== msg?.email && (
                       <p className=" text-blue-500 text-xs font-semibold -mt-1">
-                        ~ {msg?.name}
+                        ~ {msg?.user}
                       </p>
                     )}
                     {msg?.image && (
@@ -307,38 +370,32 @@ const ChatGroup = ({ params }: { params: { id: string } }) => {
                         alt="Picture of the author"
                       />
                     )}
-                    {msg?.message && (
+                    {msg?.text && (
                       <p
                         className={`text-sm ${
-                          msg?.message.includes(" ") ? "" : "break-all"
+                          msg?.text.includes(" ") ? "" : "break-all"
                         } ${
-                          currentUser?.email === msg?.sender
+                          currentUser?.email === msg?.email
                             ? "text-white"
                             : "text-slate-800"
                         } leading-[15px] ${
-                          msg?.message.length >= 55 ? "pr-2 pb-4" : "pr-16 pb-2"
+                          msg?.text.length >= 55 ? "pr-2 pb-4" : "pr-16 pb-2"
                         }  ${msg?.image ? "mt-2" : ""}`}
                       >
-                        {msg?.message.toString()}
+                        {msg?.text.toString()}
                       </p>
                     )}
                   </div>
                   <span
                     className={`absolute ${
-                      currentUser?.email === msg?.sender
+                      currentUser?.email === msg?.email
                         ? "text-white"
                         : "text-slate-800"
                     } bottom-[1px] right-2 text-[0.675rem]`}
                   >
                     {!msg?.createdAt
                       ? "00.00"
-                      : `${secondsToDate(
-                          msg?.createdAt?.seconds
-                        ).getHours()}.${secondsToDate(
-                          msg?.createdAt?.seconds
-                        ).getMinutes()} ${getAMPMFromISOString(
-                          secondsToDate(msg?.createdAt?.seconds)
-                        )}`}
+                      : `${formatTime(msg?.createdAt)}`}
                   </span>
                 </div>
               </li>

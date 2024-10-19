@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Inter, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { Provider } from "@/providers/QueryProvider";
+import { SocketProvider } from "../context/SocketContext";
 
 const inter = Inter({ subsets: ["latin"] });
 const poppins = Poppins({
@@ -22,7 +24,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={poppins.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <Provider>
+          <SocketProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </SocketProvider>
+        </Provider>
       </body>
     </html>
   );
